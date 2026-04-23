@@ -1,18 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import NDAForm from './NDAForm';
 import NDAPreview from './NDAPreview';
 import { NDAFormData, DEFAULT_FORM_DATA } from '@/types/nda';
-
-function useDebounced<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-  return debounced;
-}
+import { useDebounced } from '@/hooks/useDebounced';
 
 export default function NDAApp() {
   const [data, setData] = useState<NDAFormData>(DEFAULT_FORM_DATA);

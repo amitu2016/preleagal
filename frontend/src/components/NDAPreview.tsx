@@ -4,15 +4,10 @@ import { usePDF } from '@react-pdf/renderer';
 import { useEffect } from 'react';
 import NDADocument from './NDADocument';
 import { NDAFormData } from '@/types/nda';
+import { pdfFilename } from '@/lib/ndaHelpers';
 
 interface Props {
   data: NDAFormData;
-}
-
-function filename(data: NDAFormData): string {
-  const p1 = data.party1.company.trim().replace(/\s+/g, '-') || 'Party1';
-  const p2 = data.party2.company.trim().replace(/\s+/g, '-') || 'Party2';
-  return `Mutual-NDA-${p1}-${p2}.pdf`;
 }
 
 export default function NDAPreview({ data }: Props) {
@@ -28,7 +23,7 @@ export default function NDAPreview({ data }: Props) {
         <span className="text-sm font-medium text-gray-700">Preview</span>
         <a
           href={instance.url ?? undefined}
-          download={filename(data)}
+          download={pdfFilename(data)}
           className={`rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors ${
             instance.loading || !instance.url
               ? 'cursor-not-allowed bg-blue-300'

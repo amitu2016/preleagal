@@ -2,6 +2,7 @@
 
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { NDAFormData } from '@/types/nda';
+import { formatDate, mndaTermText, confidentialityTermText, val } from '@/lib/ndaHelpers';
 
 const s = StyleSheet.create({
   page: {
@@ -135,29 +136,6 @@ const s = StyleSheet.create({
   },
 });
 
-function formatDate(iso: string): string {
-  if (!iso) return '[Effective Date]';
-  const d = new Date(iso + 'T00:00:00');
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-}
-
-function mndaTermText(data: NDAFormData): string {
-  if (data.mndaTermType === 'fixed') {
-    return `${data.mndaTermYears} year(s) from Effective Date`;
-  }
-  return 'until terminated in accordance with the terms of the MNDA';
-}
-
-function confidentialityTermText(data: NDAFormData): string {
-  if (data.confidentialityTermType === 'fixed') {
-    return `${data.confidentialityTermYears} year(s) from Effective Date`;
-  }
-  return 'in perpetuity';
-}
-
-function val(v: string, fallback: string) {
-  return v.trim() ? v.trim() : fallback;
-}
 
 interface Props {
   data: NDAFormData;
