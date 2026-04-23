@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Mutual Non-Disclosure Agreement",
+    "description": "Standard mutual NDA created by a committee of over 40 attorneys representing technology vendors, procurement teams, boutique firms, and Big Law. Used for protecting confidential information shared between two parties.",
+    "filename": "templates/Mutual-NDA.md"
+  },
+  {
+    "name": "Mutual NDA Cover Page",
+    "description": "Cover page template for the Common Paper Mutual NDA. Used to specify the parties and customised business terms, which are then incorporated into the standard Mutual NDA terms by reference.",
+    "filename": "templates/Mutual-NDA-coverpage.md"
+  },
+  {
+    "name": "Cloud Service Agreement",
+    "description": "Standard agreement for selling and buying cloud software and SaaS products. Created by a committee of over 40 attorneys and covers subscription terms, order forms, and standard legal protections for cloud services.",
+    "filename": "templates/CSA.md"
+  },
+  {
+    "name": "Design Partner Agreement",
+    "description": "Standard agreement for formalising early-stage product partnerships between vendors and design partners. Governs the relationship when a prospective customer helps shape a product before it reaches general availability.",
+    "filename": "templates/design-partner-agreement.md"
+  },
+  {
+    "name": "Service Level Agreement",
+    "description": "Standard SLA terms designed to be used alongside the Common Paper Cloud Service Agreement. Defines uptime commitments, remedies for downtime, and measurement methodology for cloud services.",
+    "filename": "templates/sla.md"
+  },
+  {
+    "name": "Professional Services Agreement",
+    "description": "Standard agreement for engaging professional services. Covers statement-of-work structure, deliverables, acceptance criteria, fees, and standard legal terms for services engagements.",
+    "filename": "templates/psa.md"
+  },
+  {
+    "name": "Data Processing Agreement",
+    "description": "Standard agreement for governing the processing of personal data by a vendor on behalf of a customer. Addresses GDPR and other data protection law requirements including data subject rights and security obligations.",
+    "filename": "templates/DPA.md"
+  },
+  {
+    "name": "Software License Agreement",
+    "description": "Standard agreement for licensing on-premises or downloadable software. Covers license scope, restrictions, support, fees, and standard legal protections for software products.",
+    "filename": "templates/Software-License-Agreement.md"
+  },
+  {
+    "name": "Partnership Agreement",
+    "description": "Standard agreement for forming business partnerships. Covers partner roles, revenue sharing, intellectual property, and the standard legal terms that govern technology partner relationships.",
+    "filename": "templates/Partnership-Agreement.md"
+  },
+  {
+    "name": "Pilot Agreement",
+    "description": "Standard short-term agreement for product or service trials before a customer commits to a longer-term deal. Covers the limited scope, duration, fees, and termination rights specific to pilot engagements.",
+    "filename": "templates/Pilot-Agreement.md"
+  },
+  {
+    "name": "Business Associate Agreement",
+    "description": "Standard agreement for governing relationships with business associates who handle protected health information (PHI). Addresses HIPAA compliance requirements for vendors processing healthcare data.",
+    "filename": "templates/BAA.md"
+  },
+  {
+    "name": "AI Addendum",
+    "description": "Standard addendum for governing the use of artificial intelligence features and services. Addresses AI-specific concerns such as data use for model training, output accuracy, and liability for AI-generated content.",
+    "filename": "templates/AI-Addendum.md"
+  }
+]
