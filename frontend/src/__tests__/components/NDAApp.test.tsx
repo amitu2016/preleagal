@@ -2,13 +2,12 @@ import React from 'react';
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import NDAApp from '@/components/NDAApp';
-import { DEFAULT_FORM_DATA } from '@/types/nda';
+import { DEFAULT_FORM_DATA, NDAFormData } from '@/types/nda';
 
 // Render NDAPreview as a simple div that serialises what it receives so we can
 // assert on the data passed to it without involving PDF rendering.
 jest.mock('../../components/NDAPreview', () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return function MockNDAPreview({ data }: { data: any }) {
+  return function MockNDAPreview({ data }: { data: NDAFormData }) {
     return (
       <div data-testid="nda-preview">
         <span data-testid="preview-purpose">{data.purpose}</span>
