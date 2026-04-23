@@ -3,6 +3,7 @@
 import { usePDF } from '@react-pdf/renderer';
 import { useEffect } from 'react';
 import NDADocument from './NDADocument';
+import NDAHtmlPreview from './NDAHtmlPreview';
 import { NDAFormData } from '@/types/nda';
 import { pdfFilename } from '@/lib/ndaHelpers';
 
@@ -37,18 +38,8 @@ export default function NDAPreview({ data }: Props) {
           {instance.loading ? 'Preparing PDF…' : 'Download PDF'}
         </a>
       </div>
-      <div className="flex-1">
-        {instance.url ? (
-          <iframe
-            src={instance.url}
-            className="h-full w-full border-0"
-            title="NDA Preview"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-sm text-gray-400">
-            {instance.error ? 'Error rendering PDF.' : 'Generating preview…'}
-          </div>
-        )}
+      <div className="flex-1 overflow-hidden">
+        <NDAHtmlPreview data={data} />
       </div>
     </div>
   );
