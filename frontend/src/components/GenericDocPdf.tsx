@@ -49,7 +49,13 @@ function PartySection({ label, party }: { label: string; party?: GenericPartyInf
 }
 
 function stripHtml(text: string): string {
-  return text.replace(/<[^>]*>/g, '').replace(/\*\*/g, '');
+  // Remove <span> tags but keep content
+  let cleaned = text.replace(/<span[^>]*>(.*?)<\/span>/g, '$1');
+  // Remove other HTML tags
+  cleaned = cleaned.replace(/<[^>]*>/g, '');
+  // Remove markdown bold
+  cleaned = cleaned.replace(/\*\*/g, '');
+  return cleaned;
 }
 
 interface Props {
@@ -109,21 +115,46 @@ export default function GenericDocPdf({ documentType, fields, templateContent }:
         <Page style={s.page}>
           <Text style={{ ...s.sectionTitle, marginBottom: 10 }}>Standard Terms</Text>
           {templateContent.split('\n').map((line, i) => {
-            const text = stripHtml(line);
-            if (!text.trim() || text.startsWith('# ')) return null;
-            const indent = (line.match(/^( +)/)?.[1]?.length ?? 0);
-            const isSection = /^\d+\. /.test(text.trim()) && indent === 0;
+            if (!line.trim()) return <View key={i} style={{ height: 4 }} />;
+            if (line.startsWith('# ')) return null;
+
+            const indentMatch = line.match(/^( +)/);
+            const indentLevel = indentMatch ? indentMatch[1].length : 0;
+            const text = stripHtml(line.trim());
+
+            // Detect list items like "1. ", "1.1 ", "a. "
+            const isNumbered = /^\d+\. /.test(text);
+            const isNestedNumbered = /^\d+\.\d+\. /.test(text);
+            const isAlpha = /^[a-z]\. /.test(text);
+
+            let fontSize = 8.5;
+            let fontFamily = 'Times-Roman';
+            let marginBottom = 2;
+            let marginLeft = 0;
+
+            if (isNumbered && indentLevel === 0) {
+              fontFamily = 'Times-Bold';
+              marginBottom = 4;
+            } else if (isNestedNumbered || indentLevel > 0) {
+              marginLeft = Math.max(indentLevel * 2, 10);
+              fontSize = 8;
+            } else if (isAlpha) {
+              marginLeft = 20;
+              fontSize = 8;
+            }
+
             return (
               <Text
                 key={i}
                 style={{
-                  fontSize: 8.5,
-                  marginLeft: Math.min(Math.floor(indent / 4), 4) * 10,
-                  marginBottom: isSection ? 4 : 1.5,
-                  fontFamily: isSection ? 'Times-Bold' : 'Times-Roman',
+                  fontSize,
+                  fontFamily,
+                  marginLeft,
+                  marginBottom,
+                  textAlign: 'justify',
                 }}
               >
-                {text.trim()}
+                {text}
               </Text>
             );
           })}

@@ -12,7 +12,13 @@ interface Props {
 }
 
 function stripHtml(text: string): string {
-  return text.replace(/<[^>]*>/g, '').replace(/\*\*/g, '');
+  // Remove <span> tags but keep content
+  let cleaned = text.replace(/<span[^>]*>(.*?)<\/span>/g, '$1');
+  // Remove other HTML tags
+  cleaned = cleaned.replace(/<[^>]*>/g, '');
+  // Remove markdown bold
+  cleaned = cleaned.replace(/\*\*/g, '');
+  return cleaned;
 }
 
 function StandardTermsHtml({ content }: { content: string }) {
@@ -21,18 +27,33 @@ function StandardTermsHtml({ content }: { content: string }) {
     <div className="mx-auto mb-8 max-w-[720px] bg-white px-16 py-16 shadow-md font-serif text-[9pt] leading-relaxed text-black">
       <p className="text-center text-[14pt] font-bold mb-6">Standard Terms</p>
       {lines.map((line, i) => {
-        const text = stripHtml(line);
-        if (!text.trim()) return <div key={i} className="h-1" />;
-        if (text.startsWith('# ')) return null; // skip title (already in cover page)
-        const indent = (line.match(/^( +)/)?.[1]?.length ?? 0);
-        const isSection = /^\d+\. /.test(text.trim()) && indent === 0;
-        const isSubSection = /^\d+\. /.test(text.trim()) && indent > 0;
-        if (isSection) return <p key={i} className="font-bold mt-4 mb-1">{text.trim()}</p>;
-        if (isSubSection) return <p key={i} className="ml-6 mt-1 mb-0.5">{text.trim()}</p>;
-        const deepIndent = Math.min(Math.floor(indent / 4), 4) * 16;
+        if (!line.trim()) return <div key={i} className="h-2" />;
+        if (line.startsWith('# ')) return null;
+
+        const indentMatch = line.match(/^( +)/);
+        const indentLevel = indentMatch ? indentMatch[1].length : 0;
+        const text = stripHtml(line.trim());
+
+        const isNumbered = /^\d+\. /.test(text);
+        const isNestedNumbered = /^\d+\.\d+\. /.test(text);
+        const isAlpha = /^[a-z]\. /.test(text);
+
+        let className = "mt-1 text-justify";
+        let style: React.CSSProperties = {};
+
+        if (isNumbered && indentLevel === 0) {
+          className += " font-bold mt-4 mb-1";
+        } else if (isNestedNumbered || indentLevel > 0) {
+          style.marginLeft = `${Math.max(indentLevel * 4, 24)}px`;
+          className += " text-[8.5pt]";
+        } else if (isAlpha) {
+          style.marginLeft = "40px";
+          className += " text-[8.5pt]";
+        }
+
         return (
-          <p key={i} style={{ marginLeft: deepIndent }} className="mt-0.5">
-            {text.trim()}
+          <p key={i} className={className} style={style}>
+            {text}
           </p>
         );
       })}
@@ -91,7 +112,7 @@ export default function GenericDocPreview({ documentType, fields, templateConten
 
   useEffect(() => {
     updateInstance(<GenericDocPdf documentType={documentType} fields={fields} templateContent={templateContent} />);
-  }, [fields, documentType, templateContent]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fields, documentType, templateContent, updateInstance]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const docName = DOC_NAMES[documentType];
   const [p1Label, p2Label] = PARTY_LABELS[documentType];
