@@ -16,11 +16,12 @@ from database import get_db, init_db
 
 load_dotenv()
 
-CEREBRAS_API_KEY = os.environ.get("CEREBRAS_API_KEY", "")
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 
-_cerebras = AsyncOpenAI(
-    api_key=CEREBRAS_API_KEY,
-    base_url="https://api.cerebras.ai/v1",
+_ai = AsyncOpenAI(
+    api_key=OPENROUTER_API_KEY,
+    base_url="https://openrouter.ai/api/v1",
+    default_headers={"HTTP-Referer": "https://prelegal.app", "X-Title": "Prelegal"},
 )
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -193,8 +194,8 @@ async def chat_nda(body: ChatRequest):
     messages += [{"role": m.role, "content": m.content} for m in body.messages]
 
     try:
-        response = await _cerebras.chat.completions.create(
-            model="llama3.1-8b",
+        response = await _ai.chat.completions.create(
+            model="openai/gpt-oss-120b",
             messages=messages,
             response_format={"type": "json_object"},
         )
