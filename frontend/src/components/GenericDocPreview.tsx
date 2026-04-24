@@ -200,8 +200,8 @@ export default function GenericDocPreview({ documentType, fields, templateConten
           Standard terms follow on the next page.
         </p>
       </div>
+      {templateContent && <StandardTermsHtml content={templateContent} />}
     </div>
-    {templateContent && <StandardTermsHtml content={templateContent} />}
     </div>
   );
 }

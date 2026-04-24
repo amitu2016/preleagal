@@ -20,6 +20,9 @@ RUN uv sync --frozen --no-dev
 # Copy backend source
 COPY backend/*.py ./
 
+# Copy legal document templates
+COPY templates/ /templates/
+
 # Copy built frontend into static/
 COPY --from=frontend-builder /app/frontend/out ./static
 
