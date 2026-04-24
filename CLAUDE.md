@@ -8,7 +8,7 @@ The available documents are covered in the catalog.json file in the project root
 
 @catalog.json
 
-The current implementation supports all 11 document types via AI chat with full user authentication and document persistence.
+The current implementation (PL-4) provides the technical foundation: FastAPI backend, SQLite auth, and the Mutual NDA form with live preview.
 
 ## Development process
 
@@ -29,8 +29,8 @@ There is an OPENROUTER_API_KEY in the .env file in the project root.
 The entire project should be packaged into a Docker container.  
 The backend should be in backend/ and be a uv project, using FastAPI.  
 The frontend should be in frontend/  
-The database should use SQLLite and be created from scratch each time the Docker container is brought up, allowing for a users table with sign up and sign in.  
-Consider statically building the frontend and serving it via FastAPI, if that will work.  
+The database uses SQLite at `/tmp/prelegal.db` — ephemeral in the container, so it is fresh on each start. The users table supports sign up and sign in.  
+The frontend is statically exported (`next build` → `out/`) and served by FastAPI via `StaticFiles` at `/`.  
 There should be scripts in scripts/ for:  
 ```bash
 # Mac
@@ -64,42 +64,25 @@ Backend available at http://localhost:8000
 - Start/stop scripts for Mac, Linux, Windows
 - Mutual NDA form with live preview and PDF download
 
-### Completed (PL-5)
+### Planned (PL-5)
 - AI chat interface replaces manual form for NDA creation
-- Uses LiteLLM via OpenRouter with Cerebras inference (gpt-oss-120b model)
+- LiteLLM via OpenRouter with Cerebras inference (gpt-oss-120b model)
 - Structured outputs for reliable field extraction from conversation
 - Live preview updates as AI extracts fields from chat
-- AI greets user, asks questions conversationally, and confirms when complete
-- Download button appears when all required fields are gathered
 
-### Completed (PL-6)
+### Planned (PL-6)
 - Support for all 11 document types from catalog.json
 - AI detects document type from user requests and routes accordingly
-- Dedicated preview/PDF components for Mutual NDA, Cloud Service Agreement, Pilot Agreement
-- Generic preview/PDF components for remaining document types (Design Partner, SLA, Professional Services, Partnership, Software License, DPA, BAA, AI Addendum)
-- Auto-focus chat input after sending messages
-- AI always asks follow-on questions when more information is needed
+- Dedicated preview/PDF components per document type
 
-### Completed (PL-7)
-- Functional user authentication with JWT tokens in HttpOnly cookies
-- User signup and signin with email/password (bcrypt password hashing)
-- Document persistence - users can save documents to their account
+### Planned (PL-7)
+- Document persistence — users can save documents to their account
 - My Documents modal to view, load, and delete saved documents
-- User menu with sign out functionality
-- New Document button to start fresh
-- Auth context for managing user state across the app
-- Protected document save/load endpoints
+- User menu with sign out; New Document button
 
 ### Current API Endpoints
 - `POST /api/auth/signup` - Create new user account
 - `POST /api/auth/signin` - Sign in and receive JWT cookie
 - `POST /api/auth/signout` - Clear auth cookie
 - `GET /api/auth/me` - Get current user info
-- `GET /api/documents` - List user's saved documents (auth required)
-- `POST /api/documents` - Save new document (auth required)
-- `GET /api/documents/{id}` - Get specific document (auth required)
-- `PUT /api/documents/{id}` - Update document (auth required)
-- `DELETE /api/documents/{id}` - Delete document (auth required)
-- `GET /api/chat/greeting` - Get AI greeting
-- `POST /api/chat/message` - Send chat message and get AI response
 - `GET /api/health` - Health check
