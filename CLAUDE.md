@@ -8,7 +8,7 @@ The available documents are covered in the catalog.json file in the project root
 
 @catalog.json
 
-The current implementation (PL-4) provides the technical foundation: FastAPI backend, SQLite auth, and the Mutual NDA form with live preview.
+The current implementation (PL-5) adds an AI chat interface for Mutual NDA creation. The user chats with the AI, which extracts document fields via structured outputs and updates the live preview in real time.
 
 ## Development process
 
@@ -20,9 +20,21 @@ When instructed to build a feature:
 
 ## AI design
 
-When writing code to make calls to LLMs, use your Cerebras skill to use LiteLLM via OpenRouter to the `openrouter/openai/gpt-oss-120b` model with Cerebras as the inference provider. You should use Structured Outputs so that you can interpret the results and populate fields in the legal document.
+When writing code to make calls to LLMs, use the `AsyncOpenAI` client (from the `openai` package) pointed at OpenRouter:
 
-There is an OPENROUTER_API_KEY in the .env file in the project root.
+```python
+from openai import AsyncOpenAI
+
+_ai = AsyncOpenAI(
+    api_key=OPENROUTER_API_KEY,
+    base_url="https://openrouter.ai/api/v1",
+    default_headers={"HTTP-Referer": "https://prelegal.app", "X-Title": "Prelegal"},
+)
+```
+
+Use model `openai/gpt-oss-120b` and `response_format={"type": "json_object"}` for structured outputs so you can reliably extract and populate fields in the legal document. OpenRouter auto-routes to the best available provider (Cerebras, Bedrock, etc.).
+
+There is an `OPENROUTER_API_KEY` in the `.env` file in the project root.
 
 ## Technical design
 
@@ -64,11 +76,13 @@ Backend available at http://localhost:8000
 - Start/stop scripts for Mac, Linux, Windows
 - Mutual NDA form with live preview and PDF download
 
-### Planned (PL-5)
-- AI chat interface replaces manual form for NDA creation
-- LiteLLM via OpenRouter with Cerebras inference (gpt-oss-120b model)
-- Structured outputs for reliable field extraction from conversation
-- Live preview updates as AI extracts fields from chat
+### Completed (PL-5)
+- AI chat interface replaces manual NDA form
+- AsyncOpenAI SDK → OpenRouter → `openai/gpt-oss-120b` with structured JSON output
+- `POST /api/chat/nda` — stateless; frontend sends full message history each request
+- AI extracts NDA fields incrementally; live preview updates via deep-merge of partial responses
+- `NDAChat` component with loading states, error recovery, auto-greeting on mount
+- `ChatMessage.role` restricted to `Literal["user", "assistant"]` (prompt injection guard)
 
 ### Planned (PL-6)
 - Support for all 11 document types from catalog.json
@@ -85,4 +99,5 @@ Backend available at http://localhost:8000
 - `POST /api/auth/signin` - Sign in and receive JWT cookie
 - `POST /api/auth/signout` - Clear auth cookie
 - `GET /api/auth/me` - Get current user info
+- `POST /api/chat/nda` - AI chat for Mutual NDA field extraction (unauthenticated)
 - `GET /api/health` - Health check
