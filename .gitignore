@@ -76,7 +76,6 @@ next-env.d.ts
 .eslintcache
 
 # Package managers
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
