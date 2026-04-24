@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Literal
 
 import aiosqlite
-import litellm
 from dotenv import load_dotenv
+from openai import AsyncOpenAI
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Response, status
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr
@@ -17,6 +17,11 @@ from database import get_db, init_db
 load_dotenv()
 
 CEREBRAS_API_KEY = os.environ.get("CEREBRAS_API_KEY", "")
+
+_cerebras = AsyncOpenAI(
+    api_key=CEREBRAS_API_KEY,
+    base_url="https://api.cerebras.ai/v1",
+)
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -188,11 +193,10 @@ async def chat_nda(body: ChatRequest):
     messages += [{"role": m.role, "content": m.content} for m in body.messages]
 
     try:
-        response = await litellm.acompletion(
-            model="cerebras/llama3.3-70b",
+        response = await _cerebras.chat.completions.create(
+            model="llama3.1-8b",
             messages=messages,
             response_format={"type": "json_object"},
-            api_key=CEREBRAS_API_KEY,
         )
         data = json.loads(response.choices[0].message.content)
         return ChatResponse(
