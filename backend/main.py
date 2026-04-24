@@ -16,7 +16,7 @@ from database import get_db, init_db
 
 load_dotenv()
 
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+CEREBRAS_API_KEY = os.environ.get("CEREBRAS_API_KEY", "")
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -189,12 +189,10 @@ async def chat_nda(body: ChatRequest):
 
     try:
         response = await litellm.acompletion(
-            model="openrouter/openai/gpt-oss-120b",
+            model="cerebras/llama3.3-70b",
             messages=messages,
             response_format={"type": "json_object"},
-            api_key=OPENROUTER_API_KEY,
-            extra_headers={"HTTP-Referer": "https://prelegal.app", "X-Title": "Prelegal"},
-            extra_body={"provider": {"order": ["Cerebras"]}},
+            api_key=CEREBRAS_API_KEY,
         )
         data = json.loads(response.choices[0].message.content)
         return ChatResponse(
