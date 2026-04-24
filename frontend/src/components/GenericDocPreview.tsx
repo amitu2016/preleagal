@@ -1,5 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
+import { usePDF } from '@react-pdf/renderer';
+import GenericDocPdf from './GenericDocPdf';
 import { DocSlug, DOC_NAMES, PARTY_LABELS, GenericDocFields, GenericPartyInfo } from '@/types/document';
 
 interface Props {
@@ -43,7 +46,23 @@ function PartyBlock({ label, party }: { label: string; party?: GenericPartyInfo 
   );
 }
 
+function pdfFilename(documentType: DocSlug, fields: GenericDocFields): string {
+  const name = DOC_NAMES[documentType];
+  const p1 = fields.party1?.company?.trim();
+  const p2 = fields.party2?.company?.trim();
+  const parties = p1 && p2 ? ` - ${p1} & ${p2}` : '';
+  return `${name}${parties}.pdf`;
+}
+
 export default function GenericDocPreview({ documentType, fields }: Props) {
+  const [instance, updateInstance] = usePDF({
+    document: <GenericDocPdf documentType={documentType} fields={fields} />,
+  });
+
+  useEffect(() => {
+    updateInstance(<GenericDocPdf documentType={documentType} fields={fields} />);
+  }, [fields, documentType]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const docName = DOC_NAMES[documentType];
   const [p1Label, p2Label] = PARTY_LABELS[documentType];
   const p1Name = val(fields.party1?.company, p1Label);
@@ -52,7 +71,26 @@ export default function GenericDocPreview({ documentType, fields }: Props) {
   const hasKeyTerms = Object.keys(keyTerms).length > 0;
 
   return (
-    <div className="h-full overflow-y-auto bg-gray-100 px-6 py-8">
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b border-gray-200 bg-white px-5 py-3">
+        <span className="text-sm font-medium text-gray-700">Preview</span>
+        <a
+          href={instance.url ?? undefined}
+          download={pdfFilename(documentType, fields)}
+          className={`rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors ${
+            instance.loading || !instance.url
+              ? 'cursor-not-allowed bg-blue-300'
+              : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
+          }`}
+          aria-disabled={instance.loading || !instance.url}
+          onClick={(e) => {
+            if (instance.loading || !instance.url) e.preventDefault();
+          }}
+        >
+          {instance.loading ? 'Preparing PDF…' : 'Download PDF'}
+        </a>
+      </div>
+      <div className="flex-1 overflow-y-auto bg-gray-100 px-6 py-8">
       <div className="mx-auto max-w-[720px] bg-white px-16 py-16 shadow-md font-serif text-[10pt] leading-relaxed text-black">
         <p className="text-center text-[16pt] font-bold">{docName}</p>
         <p className="mt-1 text-center text-[10pt] text-gray-500">
@@ -111,6 +149,7 @@ export default function GenericDocPreview({ documentType, fields }: Props) {
           Preview shows key terms. Standard terms incorporated by reference.
         </p>
       </div>
+    </div>
     </div>
   );
 }
