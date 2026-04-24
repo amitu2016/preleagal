@@ -1,14 +1,14 @@
 import dynamic from 'next/dynamic';
 
-const NDAApp = dynamic(() => import('@/components/NDAApp'), {
+const DocumentApp = dynamic(() => import('@/components/DocumentApp'), {
   ssr: false,
   loading: () => (
     <div className="flex h-screen items-center justify-center">
-      <p className="text-gray-500">Loading NDA Creator…</p>
+      <p className="text-gray-500">Loading…</p>
     </div>
   ),
 });
 
 export default function Home() {
-  return <NDAApp />;
+  return <DocumentApp />;
 }

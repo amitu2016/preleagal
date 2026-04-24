@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Response, status
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 from auth import create_access_token, decode_token, hash_password, verify_password
 from database import get_db, init_db
@@ -118,7 +118,7 @@ async def health():
 
 # ── AI Chat ────────────────────────────────────────────────────────────────────
 
-_SYSTEM_PROMPT = """You are a legal assistant helping users create a Mutual Non-Disclosure Agreement (NDA).
+_NDA_SYSTEM_PROMPT = """You are a legal assistant helping users create a Mutual Non-Disclosure Agreement (NDA).
 
 Engage in friendly conversation to gather the following information:
 - Two parties: for each, their company name, authorized signer's name, title, and notice address (email or postal)
@@ -130,7 +130,7 @@ Engage in friendly conversation to gather the following information:
 - Jurisdiction: which city/county and state for court disputes?
 - Modifications: any modifications to standard terms? (optional)
 
-Ask questions naturally. Don't ask everything at once. Start by asking what companies are involved.
+Ask one or two questions at a time. If the user has already provided some information, acknowledge it and continue from there. Always end your message with a follow-up question if you still need more information.
 
 You MUST respond ONLY with valid JSON in this exact format:
 {
@@ -152,17 +152,137 @@ You MUST respond ONLY with valid JSON in this exact format:
 
 Only include confirmed information in "fields". Use null for anything not yet known."""
 
+# Keep alias for the legacy /api/chat/nda endpoint
+_SYSTEM_PROMPT = _NDA_SYSTEM_PROMPT
+
+_DETECT_PROMPT = """You are a helpful legal assistant. Your job is to identify what legal document the user needs.
+
+You can help create these documents:
+- mutual-nda: Mutual Non-Disclosure Agreement
+- csa: Cloud Service Agreement
+- design-partner: Design Partner Agreement
+- sla: Service Level Agreement
+- psa: Professional Services Agreement
+- dpa: Data Processing Agreement
+- software-license: Software License Agreement
+- partnership: Partnership Agreement
+- pilot: Pilot Agreement
+- baa: Business Associate Agreement
+- ai-addendum: AI Addendum
+
+Greet the user warmly and ask what document they need. Once the user describes what they want, identify the matching document type. If they ask for something not in the list, explain you can't create that type and suggest the closest match. Always end your message with a follow-up question if you need more information.
+
+You MUST respond ONLY with valid JSON:
+{
+  "message": "your conversational reply",
+  "document_type": null or one of the document slugs listed above
+}
+
+Use null for document_type until you are confident about what the user needs."""
+
+def _make_doc_prompt(name: str, p1_label: str, p2_label: str, specific_fields: str, key_terms: str) -> str:
+    return f"""You are a legal assistant helping users create a {name}.
+
+Gather these details through friendly conversation:
+- {p1_label}: company name, authorized signer name, title, and notice address (email or postal)
+- {p2_label}: company name, authorized signer name, title, and notice address
+- Effective date: when does this agreement start?
+{specific_fields}
+
+Ask one or two questions at a time. If the user has already provided some information, acknowledge it and continue from there. Always end your message with a follow-up question if you still need more information.
+
+You MUST respond ONLY with valid JSON:
+{{
+  "message": "your conversational reply",
+  "fields": {{
+    "party1": {{"company": null, "signerName": null, "title": null, "noticeAddress": null}},
+    "party2": {{"company": null, "signerName": null, "title": null, "noticeAddress": null}},
+    "effectiveDate": null,
+    "governingLaw": null,
+    "jurisdiction": null,
+    "keyTerms": {{{key_terms}}}
+  }}
+}}
+
+Use null for any field not yet confirmed."""
+
+
+_DOC_PROMPTS: dict[str, str] = {
+    "csa": _make_doc_prompt(
+        "Cloud Service Agreement",
+        "Provider (vendor)", "Customer",
+        "- Service name: what cloud service or SaaS product is being provided?\n- Subscription period: how long is the initial subscription term?\n- Fees: what are the subscription fees?\n- Payment process: automatic payment (credit card) or invoicing?\n- Governing law: which US state's law governs?\n- Jurisdiction: which city/county and state for disputes?",
+        '"serviceName": null, "subscriptionPeriod": null, "fees": null, "paymentProcess": null',
+    ),
+    "design-partner": _make_doc_prompt(
+        "Design Partner Agreement",
+        "Vendor", "Design Partner",
+        "- Product description: what product or service is being developed?\n- Program scope: what does the design partner program involve (feedback, testing, co-development)?\n- Program duration: how long does the design partner engagement last?",
+        '"productDescription": null, "programScope": null, "programDuration": null',
+    ),
+    "sla": _make_doc_prompt(
+        "Service Level Agreement",
+        "Provider", "Customer",
+        "- Uptime target: what uptime percentage is guaranteed (e.g. 99.9%)?\n- Incident response time: how quickly must the provider respond to incidents?\n- Credit percentage: what percentage credit is given for downtime?\n- Measurement period: how is uptime measured (e.g. monthly)?",
+        '"uptimeTarget": null, "incidentResponseTime": null, "creditPercentage": null, "measurementPeriod": null',
+    ),
+    "psa": _make_doc_prompt(
+        "Professional Services Agreement",
+        "Provider", "Customer",
+        "- Service description: what professional services will be provided?\n- Deliverables: what specific outputs or deliverables are expected?\n- Fees: what is the fee structure (hourly, fixed, retainer)?\n- Payment terms: when are payments due?\n- Governing law and jurisdiction",
+        '"serviceDescription": null, "deliverables": null, "fees": null, "paymentTerms": null',
+    ),
+    "dpa": _make_doc_prompt(
+        "Data Processing Agreement",
+        "Controller (data controller)", "Processor (data processor)",
+        "- Types of personal data: what categories of personal data will be processed?\n- Processing purposes: for what purposes will the data be processed?\n- Retention period: how long will personal data be retained?",
+        '"dataTypes": null, "processingPurposes": null, "retentionPeriod": null',
+    ),
+    "software-license": _make_doc_prompt(
+        "Software License Agreement",
+        "Licensor", "Licensee",
+        "- Software name: what software is being licensed?\n- License type: perpetual or subscription? Any restrictions (single user, enterprise, etc.)?\n- Territory: which countries/regions does the license cover?\n- Fees: what is the license fee?\n- Governing law and jurisdiction",
+        '"softwareName": null, "licenseType": null, "territory": null, "fees": null',
+    ),
+    "partnership": _make_doc_prompt(
+        "Partnership Agreement",
+        "Party 1", "Party 2",
+        "- Partnership purpose: what is the goal or scope of this partnership?\n- Revenue share: how will revenues be split between the parties?\n- IP ownership: who owns intellectual property created during the partnership?\n- Term: how long does the partnership last?\n- Governing law and jurisdiction",
+        '"partnershipPurpose": null, "revenueShare": null, "ipOwnership": null, "term": null',
+    ),
+    "pilot": _make_doc_prompt(
+        "Pilot Agreement",
+        "Vendor", "Customer",
+        "- Product/service description: what product or service is being piloted?\n- Pilot duration: how long will the pilot run?\n- Fees: is the pilot paid or free? If paid, what is the fee?\n- Success criteria: what metrics or outcomes define a successful pilot?",
+        '"productDescription": null, "pilotDuration": null, "fees": null, "successCriteria": null',
+    ),
+    "baa": _make_doc_prompt(
+        "Business Associate Agreement",
+        "Covered Entity", "Business Associate",
+        "- Types of PHI: what categories of protected health information will be handled?\n- Permitted uses: for what purposes may the business associate use or disclose PHI?\n- Subcontractor requirements: are there restrictions on subcontractors handling PHI?",
+        '"phiTypes": null, "permittedUses": null, "subcontractorRequirements": null',
+    ),
+    "ai-addendum": _make_doc_prompt(
+        "AI Addendum",
+        "Provider", "Customer",
+        "- AI features: which AI features or services does this addendum cover?\n- Data use for training: may customer data be used to train AI models? Under what conditions?\n- Output accuracy disclaimer: what disclaimers apply to AI-generated outputs?",
+        '"aiFeatures": null, "dataUseForTraining": null, "outputAccuracyDisclaimer": null',
+    ),
+}
+
 
 class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str
 
 
-class ChatRequest(BaseModel):
+class GenericChatRequest(BaseModel):
     messages: list[ChatMessage]
+    document_type: str | None = None
 
 
 class PartyFields(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     company: str | None = None
     signerName: str | None = None
     title: str | None = None
@@ -170,6 +290,7 @@ class PartyFields(BaseModel):
 
 
 class NDAFields(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     purpose: str | None = None
     effectiveDate: str | None = None
     mndaTermType: str | None = None
@@ -183,27 +304,85 @@ class NDAFields(BaseModel):
     party2: PartyFields | None = None
 
 
+class GenericDocFields(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    party1: PartyFields | None = None
+    party2: PartyFields | None = None
+    effectiveDate: str | None = None
+    governingLaw: str | None = None
+    jurisdiction: str | None = None
+    keyTerms: dict[str, str | None] | None = None
+
+
 class ChatResponse(BaseModel):
     message: str
     fields: NDAFields
 
 
-@app.post("/api/chat/nda", response_model=ChatResponse)
-async def chat_nda(body: ChatRequest):
-    messages = [{"role": "system", "content": _SYSTEM_PROMPT}]
-    messages += [{"role": m.role, "content": m.content} for m in body.messages]
+async def _call_ai(system_prompt: str, messages: list[ChatMessage]) -> dict:
+    msgs = [{"role": "system", "content": system_prompt}]
+    msgs += [{"role": m.role, "content": m.content} for m in messages]
+    response = await _ai.chat.completions.create(
+        model="openai/gpt-oss-120b",
+        messages=msgs,
+        response_format={"type": "json_object"},
+    )
+    return json.loads(response.choices[0].message.content)
 
+
+@app.post("/api/chat/nda", response_model=ChatResponse)
+async def chat_nda(body: GenericChatRequest):
     try:
-        response = await _ai.chat.completions.create(
-            model="openai/gpt-oss-120b",
-            messages=messages,
-            response_format={"type": "json_object"},
-        )
-        data = json.loads(response.choices[0].message.content)
+        data = await _call_ai(_NDA_SYSTEM_PROMPT, body.messages)
         return ChatResponse(
             message=data.get("message", ""),
             fields=NDAFields(**data.get("fields", {})),
         )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="AI service unavailable") from exc
+
+
+@app.post("/api/chat")
+async def chat_generic(body: GenericChatRequest) -> dict:
+    try:
+        if body.document_type is None:
+            data = await _call_ai(_DETECT_PROMPT, body.messages)
+            return {
+                "message": data.get("message", ""),
+                "document_type": data.get("document_type"),
+                "fields": None,
+            }
+
+        if body.document_type == "mutual-nda":
+            data = await _call_ai(_NDA_SYSTEM_PROMPT, body.messages)
+            fields = NDAFields(**data.get("fields", {})).model_dump()
+            return {
+                "message": data.get("message", ""),
+                "document_type": "mutual-nda",
+                "fields": fields,
+            }
+
+        prompt = _DOC_PROMPTS.get(body.document_type)
+        if prompt is None:
+            raise HTTPException(status_code=400, detail=f"Unknown document type: {body.document_type}")
+
+        data = await _call_ai(prompt, body.messages)
+        raw_fields = data.get("fields", {})
+        fields = GenericDocFields(
+            party1=PartyFields(**raw_fields["party1"]) if raw_fields.get("party1") else None,
+            party2=PartyFields(**raw_fields["party2"]) if raw_fields.get("party2") else None,
+            effectiveDate=raw_fields.get("effectiveDate"),
+            governingLaw=raw_fields.get("governingLaw"),
+            jurisdiction=raw_fields.get("jurisdiction"),
+            keyTerms=raw_fields.get("keyTerms"),
+        )
+        return {
+            "message": data.get("message", ""),
+            "document_type": body.document_type,
+            "fields": fields.model_dump(),
+        }
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail="AI service unavailable") from exc
 
