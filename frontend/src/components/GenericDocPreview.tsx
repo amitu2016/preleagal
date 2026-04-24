@@ -8,6 +8,36 @@ import { DocSlug, DOC_NAMES, PARTY_LABELS, GenericDocFields, GenericPartyInfo } 
 interface Props {
   documentType: DocSlug;
   fields: GenericDocFields;
+  templateContent?: string;
+}
+
+function stripHtml(text: string): string {
+  return text.replace(/<[^>]*>/g, '').replace(/\*\*/g, '');
+}
+
+function StandardTermsHtml({ content }: { content: string }) {
+  const lines = content.split('\n');
+  return (
+    <div className="mx-auto mb-8 max-w-[720px] bg-white px-16 py-16 shadow-md font-serif text-[9pt] leading-relaxed text-black">
+      <p className="text-center text-[14pt] font-bold mb-6">Standard Terms</p>
+      {lines.map((line, i) => {
+        const text = stripHtml(line);
+        if (!text.trim()) return <div key={i} className="h-1" />;
+        if (text.startsWith('# ')) return null; // skip title (already in cover page)
+        const indent = (line.match(/^( +)/)?.[1]?.length ?? 0);
+        const isSection = /^\d+\. /.test(text.trim()) && indent === 0;
+        const isSubSection = /^\d+\. /.test(text.trim()) && indent > 0;
+        if (isSection) return <p key={i} className="font-bold mt-4 mb-1">{text.trim()}</p>;
+        if (isSubSection) return <p key={i} className="ml-6 mt-1 mb-0.5">{text.trim()}</p>;
+        const deepIndent = Math.min(Math.floor(indent / 4), 4) * 16;
+        return (
+          <p key={i} style={{ marginLeft: deepIndent }} className="mt-0.5">
+            {text.trim()}
+          </p>
+        );
+      })}
+    </div>
+  );
 }
 
 function val(v: string | null | undefined, fallback: string) {
@@ -54,14 +84,14 @@ function pdfFilename(documentType: DocSlug, fields: GenericDocFields): string {
   return `${name}${parties}.pdf`;
 }
 
-export default function GenericDocPreview({ documentType, fields }: Props) {
+export default function GenericDocPreview({ documentType, fields, templateContent }: Props) {
   const [instance, updateInstance] = usePDF({
-    document: <GenericDocPdf documentType={documentType} fields={fields} />,
+    document: <GenericDocPdf documentType={documentType} fields={fields} templateContent={templateContent} />,
   });
 
   useEffect(() => {
-    updateInstance(<GenericDocPdf documentType={documentType} fields={fields} />);
-  }, [fields, documentType]); // eslint-disable-line react-hooks/exhaustive-deps
+    updateInstance(<GenericDocPdf documentType={documentType} fields={fields} templateContent={templateContent} />);
+  }, [fields, documentType, templateContent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const docName = DOC_NAMES[documentType];
   const [p1Label, p2Label] = PARTY_LABELS[documentType];
@@ -146,10 +176,11 @@ export default function GenericDocPreview({ documentType, fields }: Props) {
         </div>
 
         <p className="mt-8 text-center text-[8pt] text-gray-400">
-          Preview shows key terms. Standard terms incorporated by reference.
+          Standard terms follow on the next page.
         </p>
       </div>
     </div>
+    {templateContent && <StandardTermsHtml content={templateContent} />}
     </div>
   );
 }

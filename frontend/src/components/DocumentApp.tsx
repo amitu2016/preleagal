@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import DocumentChat from './DocumentChat';
 import NDAPreview from './NDAPreview';
 import GenericDocPreview from './GenericDocPreview';
@@ -31,9 +31,18 @@ export default function DocumentApp() {
   const [documentType, setDocumentType] = useState<DocSlug | null>(null);
   const [ndaFields, setNdaFields] = useState<NDAFormData>(DEFAULT_FORM_DATA);
   const [genericFields, setGenericFields] = useState<GenericDocFields>(DEFAULT_GENERIC_FIELDS);
+  const [templateContent, setTemplateContent] = useState<string | null>(null);
 
   const debouncedNda = useDebounced(ndaFields, 600);
   const debouncedGeneric = useDebounced(genericFields, 600);
+
+  useEffect(() => {
+    if (!documentType || documentType === 'mutual-nda') return;
+    fetch(`/api/documents/${documentType}/template`)
+      .then((r) => r.json())
+      .then((data) => setTemplateContent(data.content))
+      .catch(() => setTemplateContent(null));
+  }, [documentType]);
 
   const handleDocumentType = useCallback((slug: DocSlug) => {
     setDocumentType(slug);
@@ -75,7 +84,7 @@ export default function DocumentApp() {
           {documentType === 'mutual-nda' ? (
             <NDAPreview data={debouncedNda} />
           ) : documentType !== null ? (
-            <GenericDocPreview documentType={documentType} fields={debouncedGeneric} />
+            <GenericDocPreview documentType={documentType} fields={debouncedGeneric} templateContent={templateContent ?? undefined} />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3">
               <p className="text-sm text-gray-400">Document preview will appear here once identified.</p>

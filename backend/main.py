@@ -25,6 +25,21 @@ _ai = AsyncOpenAI(
 )
 
 STATIC_DIR = Path(__file__).parent / "static"
+TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
+
+_TEMPLATE_FILES: dict[str, str] = {
+    "mutual-nda": "Mutual-NDA.md",
+    "csa": "CSA.md",
+    "design-partner": "design-partner-agreement.md",
+    "sla": "sla.md",
+    "psa": "psa.md",
+    "dpa": "DPA.md",
+    "software-license": "Software-License-Agreement.md",
+    "partnership": "Partnership-Agreement.md",
+    "pilot": "Pilot-Agreement.md",
+    "baa": "BAA.md",
+    "ai-addendum": "AI-Addendum.md",
+}
 
 
 @asynccontextmanager
@@ -385,6 +400,19 @@ async def chat_generic(body: GenericChatRequest) -> dict:
         raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail="AI service unavailable") from exc
+
+
+# ── Document templates ─────────────────────────────────────────────────────────
+
+@app.get("/api/documents/{doc_type}/template")
+async def get_template(doc_type: str) -> dict:
+    filename = _TEMPLATE_FILES.get(doc_type)
+    if not filename:
+        raise HTTPException(status_code=404, detail="Unknown document type")
+    path = TEMPLATES_DIR / filename
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Template file not found")
+    return {"content": path.read_text(encoding="utf-8")}
 
 
 # ── Serve static Next.js export ────────────────────────────────────────────────

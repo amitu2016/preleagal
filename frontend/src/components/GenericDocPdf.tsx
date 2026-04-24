@@ -48,12 +48,17 @@ function PartySection({ label, party }: { label: string; party?: GenericPartyInf
   );
 }
 
+function stripHtml(text: string): string {
+  return text.replace(/<[^>]*>/g, '').replace(/\*\*/g, '');
+}
+
 interface Props {
   documentType: DocSlug;
   fields: GenericDocFields;
+  templateContent?: string;
 }
 
-export default function GenericDocPdf({ documentType, fields }: Props) {
+export default function GenericDocPdf({ documentType, fields, templateContent }: Props) {
   const docName = DOC_NAMES[documentType];
   const [p1Label, p2Label] = PARTY_LABELS[documentType];
   const p1Name = v(fields.party1?.company, p1Label);
@@ -98,8 +103,32 @@ export default function GenericDocPdf({ documentType, fields }: Props) {
           </View>
         </View>
 
-        <Text style={s.footer}>Preview shows key terms. Standard terms incorporated by reference.</Text>
+        <Text style={s.footer}>Standard terms follow on the next page.</Text>
       </Page>
+      {templateContent && (
+        <Page style={s.page}>
+          <Text style={{ ...s.sectionTitle, marginBottom: 10 }}>Standard Terms</Text>
+          {templateContent.split('\n').map((line, i) => {
+            const text = stripHtml(line);
+            if (!text.trim() || text.startsWith('# ')) return null;
+            const indent = (line.match(/^( +)/)?.[1]?.length ?? 0);
+            const isSection = /^\d+\. /.test(text.trim()) && indent === 0;
+            return (
+              <Text
+                key={i}
+                style={{
+                  fontSize: 8.5,
+                  marginLeft: Math.min(Math.floor(indent / 4), 4) * 10,
+                  marginBottom: isSection ? 4 : 1.5,
+                  fontFamily: isSection ? 'Times-Bold' : 'Times-Roman',
+                }}
+              >
+                {text.trim()}
+              </Text>
+            );
+          })}
+        </Page>
+      )}
     </Document>
   );
 }
