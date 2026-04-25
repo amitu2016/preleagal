@@ -108,27 +108,104 @@ async def signout(response: Response):
     return {"message": "Signed out"}
 
 
-@app.get("/api/auth/me", response_model=UserResponse)
-async def me(access_token: str | None = Cookie(default=None), db=Depends(get_db)):
+async def get_current_user(access_token: str | None = Cookie(default=None), db=Depends(get_db)):
     if not access_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     payload = decode_token(access_token)
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
-
-    async with db.execute(
-        "SELECT id, email FROM users WHERE id = ?", (int(payload["sub"]),)
-    ) as cursor:
+    async with db.execute("SELECT id, email FROM users WHERE id = ?", (int(payload["sub"]),)) as cursor:
         row = await cursor.fetchone()
-
     if not row:
         raise HTTPException(status_code=401, detail="User not found")
     return {"id": row["id"], "email": row["email"]}
 
 
+@app.get("/api/auth/me", response_model=UserResponse)
+async def me(current_user=Depends(get_current_user)):
+    return current_user
+
+
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+# ── Document persistence ───────────────────────────────────────────────────────
+
+class SaveDocumentRequest(BaseModel):
+    document_type: str
+    title: str
+    fields: dict
+    messages: list[dict]
+
+
+class DocumentSummary(BaseModel):
+    id: int
+    document_type: str
+    title: str
+    created_at: str
+
+
+class DocumentDetail(BaseModel):
+    id: int
+    document_type: str
+    title: str
+    fields: dict
+    messages: list[dict]
+    created_at: str
+
+
+@app.post("/api/documents", response_model=DocumentSummary, status_code=status.HTTP_201_CREATED)
+async def save_document(body: SaveDocumentRequest, current_user=Depends(get_current_user), db=Depends(get_db)):
+    async with db.execute(
+        "INSERT INTO documents (user_id, document_type, title, fields, messages) VALUES (?, ?, ?, ?, ?) RETURNING id, document_type, title, created_at",
+        (current_user["id"], body.document_type, body.title, json.dumps(body.fields), json.dumps(body.messages)),
+    ) as cursor:
+        row = await cursor.fetchone()
+    await db.commit()
+    return {"id": row["id"], "document_type": row["document_type"], "title": row["title"], "created_at": str(row["created_at"])}
+
+
+@app.get("/api/documents", response_model=list[DocumentSummary])
+async def list_documents(current_user=Depends(get_current_user), db=Depends(get_db)):
+    async with db.execute(
+        "SELECT id, document_type, title, created_at FROM documents WHERE user_id = ? ORDER BY created_at DESC",
+        (current_user["id"],),
+    ) as cursor:
+        rows = await cursor.fetchall()
+    return [{"id": r["id"], "document_type": r["document_type"], "title": r["title"], "created_at": str(r["created_at"])} for r in rows]
+
+
+@app.get("/api/documents/{doc_id}", response_model=DocumentDetail)
+async def get_document(doc_id: int, current_user=Depends(get_current_user), db=Depends(get_db)):
+    async with db.execute(
+        "SELECT id, document_type, title, fields, messages, created_at FROM documents WHERE id = ? AND user_id = ?",
+        (doc_id, current_user["id"]),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {
+        "id": row["id"],
+        "document_type": row["document_type"],
+        "title": row["title"],
+        "fields": json.loads(row["fields"]),
+        "messages": json.loads(row["messages"]),
+        "created_at": str(row["created_at"]),
+    }
+
+
+@app.delete("/api/documents/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_document(doc_id: int, current_user=Depends(get_current_user), db=Depends(get_db)):
+    await db.execute(
+        "DELETE FROM documents WHERE id = ? AND user_id = ?", (doc_id, current_user["id"])
+    )
+    async with db.execute("SELECT changes()") as cursor:
+        row = await cursor.fetchone()
+    await db.commit()
+    if row[0] == 0:
+        raise HTTPException(status_code=404, detail="Document not found")
 
 
 # ── AI Chat ────────────────────────────────────────────────────────────────────
