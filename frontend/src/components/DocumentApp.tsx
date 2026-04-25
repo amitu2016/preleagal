@@ -54,6 +54,19 @@ export default function DocumentApp() {
   const debouncedNda = useDebounced(ndaFields, 600);
   const debouncedGeneric = useDebounced(genericFields, 600);
 
+  // Reset all document state when the signed-in user changes (e.g. sign out → sign in as different user)
+  useEffect(() => {
+    if (!user) return;
+    setDocumentType(null);
+    setNdaFields(DEFAULT_FORM_DATA);
+    setGenericFields(DEFAULT_GENERIC_FIELDS);
+    setTemplateContent(null);
+    setInitialMessages([]);
+    setSaveStatus('idle');
+    messagesRef.current = [];
+    setChatKey((k) => k + 1);
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!documentType || documentType === 'mutual-nda') return;
     fetch(`/api/documents/${documentType}/template`)
