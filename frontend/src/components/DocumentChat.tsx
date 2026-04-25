@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { NDAFormData } from '@/types/nda';
 import { DocSlug, GenericDocFields } from '@/types/document';
 
-interface Message {
+export interface Message {
   role: 'user' | 'assistant';
   content: string;
 }
@@ -14,33 +14,42 @@ interface Props {
   onDocumentType: (type: DocSlug) => void;
   onNdaFields: (fields: Partial<NDAFormData>) => void;
   onGenericFields: (fields: Partial<GenericDocFields>) => void;
+  onMessagesChange: (messages: Message[]) => void;
+  initialMessages?: Message[];
 }
 
-export default function DocumentChat({ documentType, onDocumentType, onNdaFields, onGenericFields }: Props) {
-  const [messages, setMessages] = useState<Message[]>([]);
+export default function DocumentChat({
+  documentType,
+  onDocumentType,
+  onNdaFields,
+  onGenericFields,
+  onMessagesChange,
+  initialMessages,
+}: Props) {
+  const [messages, setMessages] = useState<Message[]>(initialMessages ?? []);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  // Keep a ref so callAI always reads the latest documentType, not the closure value.
   const documentTypeRef = useRef<DocSlug | null>(documentType);
   useEffect(() => {
     documentTypeRef.current = documentType;
   }, [documentType]);
 
   useEffect(() => {
-    callAI([]);
+    onMessagesChange(messages);
+  }, [messages]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!initialMessages?.length) callAI([]);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  // Restore focus to input after AI responds (after disabled is removed from DOM)
   useEffect(() => {
-    if (!loading) {
-      inputRef.current?.focus();
-    }
+    if (!loading) inputRef.current?.focus();
   }, [loading]);
 
   async function callAI(msgs: Message[]) {
